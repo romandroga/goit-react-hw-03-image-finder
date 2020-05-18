@@ -7,6 +7,7 @@ import Modal from '../Modal/Modal';
 import LoadingIndicator from '../LoadingIndicator/LoadingIndicator';
 // Utilities
 import fetchImages from '../../services/gallery-api';
+import bottomScroll from '../../services/utilities';
 
 export default class App extends Component {
   state = {
@@ -19,33 +20,24 @@ export default class App extends Component {
   };
 
   componentDidUpdate(prevProps, prevState) {
-    const { query, pageNumber } = this.state;
+    const { query, pageNumber, gallery } = this.state;
 
-    if (query !== prevState.query) {
+    if (query !== prevState.query || pageNumber !== prevState.pageNumber) {
       this.setState({ isLoading: true });
 
       fetchImages(query, pageNumber)
-        .then(res => this.setState({ gallery: [...res.data.hits] }))
-        .catch(error => console.log(error))
-        .finally(() => this.setState({ isLoading: false }));
-      return;
-    }
-
-    if (pageNumber !== prevState.pageNumber && pageNumber !== 1) {
-      this.setState({ isLoading: true });
-
-      fetchImages(query, pageNumber)
-        .then(res => {
-          this.setState({ gallery: [...prevState.gallery, ...res.data.hits] });
-        })
+        .then(res =>
+          !gallery.length
+            ? this.setState({ gallery: [...res.data.hits] })
+            : this.setState({
+                gallery: [...prevState.gallery, ...res.data.hits],
+              }),
+        )
         .catch(error => console.log(error))
         .finally(() => {
           this.setState({ isLoading: false });
 
-          window.scrollTo({
-            top: document.documentElement.scrollHeight,
-            behavior: 'smooth',
-          });
+          if (pageNumber !== 1) bottomScroll();
         });
     }
   }
@@ -58,9 +50,10 @@ export default class App extends Component {
     this.setState(prevState => ({ pageNumber: prevState.pageNumber + 1 }));
   };
 
-  closeModal = () => this.setState({ isModalOpen: false, largeImageUrl: '' });
+  handleCloseModal = () =>
+    this.setState({ isModalOpen: false, largeImageUrl: '' });
 
-  openModal = ({ target }) =>
+  handleOpenModal = ({ target }) =>
     this.setState({
       isModalOpen: true,
       largeImageUrl: target.attributes['large-img'].value,
@@ -71,10 +64,12 @@ export default class App extends Component {
     return (
       <>
         <Searchbar onSubmit={this.getSearchQuery} />
-        <ImageGallery images={gallery} onClick={this.openModal} />
+        <ImageGallery images={gallery} onClick={this.handleOpenModal} />
         {isLoading && <LoadingIndicator />}
         {!!gallery.length && <Button onClick={this.handleLoadMore} />}
-        {isModalOpen && <Modal src={largeImageUrl} onClose={this.closeModal} />}
+        {isModalOpen && (
+          <Modal src={largeImageUrl} onClose={this.handleCloseModal} />
+        )}
       </>
     );
   }
